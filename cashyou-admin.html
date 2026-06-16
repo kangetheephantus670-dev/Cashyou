@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CASHYOU — Admin Console</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #030712;
+      --panel: #0f172a;
+      --panel-deep: #020617;
+      --cyan: #22d3ee;
+      --cyan-dim: #0891b2;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --emerald: #10b981;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #1e293b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Inter', sans-serif; min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      background-image:
+        radial-gradient(circle at 0% 0%, rgba(34,211,238,0.05) 0%, transparent 40%),
+        radial-gradient(circle at 100% 100%, rgba(245,158,11,0.04) 0%, transparent 40%);
+    }
+
+    /* ── LOGIN SCREEN ───────────────────────────────────────── */
+    #login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .login-box {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 20px;
+      padding: 40px; width: 100%; max-width: 400px;
+    }
+    .login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+    .login-dot { width: 10px; height: 10px; background: var(--cyan); border-radius: 3px; box-shadow: 0 0 10px var(--cyan); animation: blink 2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .login-brand h1 { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+    .login-box h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .login-box p { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+    .field { margin-bottom: 18px; }
+    .field label { display: block; font-size: 11px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.5px; }
+    .field input {
+      width: 100%; background: var(--panel-deep); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text); padding: 12px 14px; font-size: 14px;
+      font-family: inherit; transition: border-color .15s;
+    }
+    .field input:focus { outline: none; border-color: var(--cyan); }
+    .err-msg { font-size: 12px; color: var(--rose); margin-top: 6px; display: none; }
+    .err-msg.show { display: block; }
+    .btn-login {
+      width: 100%; padding: 13px; background: var(--cyan); color: var(--panel-deep);
+      border: none; border-radius: 10px; font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; font-weight: 700; text-transform: uppercase; cursor: pointer;
+      transition: all .2s; margin-top: 4px;
+    }
+    .btn-login:hover { background: #67e8f9; box-shadow: 0 0 20px rgba(34,211,238,.3); }
+    .btn-login:disabled { opacity: .6; cursor: not-allowed; }
+    .spinner { width: 14px; height: 14px; border: 2px solid rgba(0,0,0,.2); border-top-color: #000; border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── APP SHELL ──────────────────────────────────────────── */
+    #app-shell { display: none; flex-direction: column; min-height: 100vh; }
+
+    header {
+      background: var(--panel-deep); border-bottom: 1px solid var(--border);
+      padding: 14px 28px; display: flex; justify-content: space-between;
+      align-items: center; position: sticky; top: 0; z-index: 100;
+    }
+    .brand-group { display: flex; align-items: center; gap: 12px; }
+    .brand-dot { width: 10px; height: 10px; background: var(--cyan); border-radius: 3px; box-shadow: 0 0 10px var(--cyan); animation: blink 2s infinite; }
+    .brand-text { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; }
+    .header-right { display: flex; align-items: center; gap: 20px; }
+    #system-clock { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+    .admin-badge { font-size: 11px; color: var(--cyan); background: rgba(34,211,238,.08); border: 1px solid rgba(34,211,238,.2); border-radius: 6px; padding: 4px 10px; font-family: 'JetBrains Mono', monospace; }
+    .btn-logout { background: none; border: 1px solid rgba(244,63,94,.25); color: var(--rose); border-radius: 8px; padding: 6px 14px; font-size: 12px; font-family: 'JetBrains Mono', monospace; cursor: pointer; transition: all .2s; }
+    .btn-logout:hover { background: rgba(244,63,94,.1); }
+
+    nav {
+      background: rgba(15,23,42,.85); backdrop-filter: blur(8px);
+      display: flex; gap: 2px; padding: 6px 28px;
+      border-bottom: 1px solid var(--border); position: sticky; top: 57px; z-index: 90;
+      overflow-x: auto; scrollbar-width: none;
+    }
+    nav::-webkit-scrollbar { display: none; }
+    nav button {
+      background: transparent; border: none; color: var(--muted);
+      font-family: 'JetBrains Mono', monospace; padding: 9px 16px; font-size: 12px;
+      font-weight: 500; cursor: pointer; border-radius: 6px; transition: all .2s;
+      text-transform: uppercase; white-space: nowrap;
+    }
+    nav button.active { background: rgba(34,211,238,.1); color: var(--cyan); font-weight: 700; }
+    nav button:hover:not(.active) { color: var(--text); background: rgba(255,255,255,.03); }
+
+    main { padding: 28px; max-width: 1400px; margin: 0 auto; flex: 1; }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ── TYPOGRAPHY ─────────────────────────────────────────── */
+    .section-title {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;
+      letter-spacing: 2px; color: var(--cyan-dim); margin-bottom: 18px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-title::before { content: '//'; color: var(--border); }
+
+    /* ── METRIC CARDS ───────────────────────────────────────── */
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .metric-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+      padding: 20px; position: relative; overflow: hidden;
+    }
+    .metric-card::after {
+      content: ''; position: absolute; bottom: -20px; right: -20px;
+      width: 80px; height: 80px; background: radial-gradient(circle, rgba(34,211,238,.07) 0%, transparent 75%);
+      border-radius: 50%;
+    }
+    .metric-card .m-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 1px; margin-bottom: 10px; }
+    .metric-card .m-value { font-size: 30px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .metric-card.c-cyan .m-value { color: var(--cyan); }
+    .metric-card.c-rose .m-value { color: var(--rose); }
+    .metric-card.c-emerald .m-value { color: var(--emerald); }
+    .metric-card.c-amber .m-value { color: var(--amber); }
+    .metric-card .m-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    /* ── PANEL / CARD ───────────────────────────────────────── */
+    .panel {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 14px; padding: 22px; margin-bottom: 24px;
+    }
+
+    /* ── FORM ELEMENTS ──────────────────────────────────────── */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+    .form-field label {
+      display: block; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 7px;
+    }
+    .form-field input, .form-field select {
+      width: 100%; background: var(--panel-deep); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 11px 12px; font-size: 14px;
+      font-family: inherit; transition: border-color .15s;
+    }
+    .form-field input:focus, .form-field select:focus { outline: none; border-color: var(--cyan); }
+    .form-field .f-err { font-size: 11px; color: var(--rose); margin-top: 5px; display: none; }
+    .form-field .f-err.show { display: block; }
+    .form-actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    /* ── BUTTONS ────────────────────────────────────────────── */
+    .btn {
+      border: none; border-radius: 8px; font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; font-weight: 700; text-transform: uppercase; cursor: pointer;
+      padding: 11px 20px; transition: all .2s; display: inline-flex; align-items: center; gap: 7px;
+    }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .btn-primary { background: var(--cyan); color: var(--panel-deep); }
+    .btn-primary:hover:not(:disabled) { background: #67e8f9; box-shadow: 0 0 16px rgba(34,211,238,.35); }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,.04); }
+    .btn-danger { background: transparent; border: 1px solid rgba(244,63,94,.3); color: var(--rose); }
+    .btn-danger:hover:not(:disabled) { background: rgba(244,63,94,.1); box-shadow: 0 0 14px rgba(244,63,94,.2); }
+
+    /* ── TABLE ──────────────────────────────────────────────── */
+    .search-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .search-row input, .search-row select {
+      background: var(--panel-deep); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); padding: 9px 12px; font-size: 13px; font-family: inherit;
+      transition: border-color .15s;
+    }
+    .search-row input { flex: 1; min-width: 180px; }
+    .search-row input:focus, .search-row select:focus { outline: none; border-color: var(--cyan); }
+    .table-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; min-width: 600px; }
+    th {
+      background: var(--panel-deep); font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      text-transform: uppercase; color: var(--cyan-dim); padding: 13px 16px;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,.02); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.01); }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .right { text-align: right; }
+    .text-muted { color: var(--muted); }
+
+    .badge {
+      display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      font-weight: 700; text-transform: uppercase; padding: 3px 9px;
+      border-radius: 6px; border: 1px solid;
+    }
+    .badge-active { color: var(--cyan); background: rgba(34,211,238,.05); border-color: rgba(34,211,238,.2); }
+    .badge-overdue { color: var(--rose); background: rgba(244,63,94,.05); border-color: rgba(244,63,94,.2); }
+    .badge-paid { color: var(--emerald); background: rgba(16,185,129,.05); border-color: rgba(16,185,129,.2); }
+
+    /* ── EMPTY / LOADING ────────────────────────────────────── */
+    .table-empty { text-align: center; padding: 36px 16px; color: var(--muted); font-size: 13px; }
+    .skeleton { background: rgba(255,255,255,.04); border-radius: 6px; animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── AUDIT LOG TYPES ────────────────────────────────────── */
+    .log-disbursement { color: var(--cyan); }
+    .log-payment { color: var(--emerald); }
+
+    /* ── TOAST ──────────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--panel-deep); border: 1px solid var(--cyan);
+      color: var(--cyan); font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      padding: 14px 22px; border-radius: 10px; z-index: 9999;
+      box-shadow: 0 10px 30px rgba(0,0,0,.5);
+      transform: translateY(120%); opacity: 0;
+      transition: all .3s cubic-bezier(.165,.84,.44,1);
+      max-width: 340px;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.error { border-color: var(--rose); color: var(--rose); }
+    .toast.success { border-color: var(--emerald); color: var(--emerald); }
+
+    /* ── CONFIRM DIALOG ─────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      display: none; align-items: center; justify-content: center; z-index: 200;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+      padding: 32px; max-width: 380px; width: 90%; text-align: center;
+    }
+    .modal-box h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+    .modal-box p { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: center; }
+
+    /* ── PROGRESS BAR ───────────────────────────────────────── */
+    .progress-wrap { background: rgba(255,255,255,.06); border-radius: 4px; height: 5px; overflow: hidden; margin-top: 6px; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--cyan-dim), var(--emerald)); transition: width .6s ease; border-radius: 4px; }
+
+    /* ── TOOLS GRID ─────────────────────────────────────────── */
+    .tools-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .tool-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px;
+    }
+    .tool-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .tool-card p { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<!-- ── LOGIN SCREEN ──────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="login-dot"></div>
+      <h1>CASHYOU <span style="color:var(--muted);font-weight:300;font-size:14px;">// Admin</span></h1>
+    </div>
+    <h2>Administrator Login</h2>
+    <p>Restricted access. Authorised personnel only.</p>
+
+    <div class="field">
+      <label>Admin Email</label>
+      <input type="email" id="login-email" placeholder="admin@cashyou.com" autocomplete="email">
+      <div class="err-msg" id="err-email">Enter a valid email address.</div>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+      <div class="err-msg" id="err-pass">Password is required.</div>
+    </div>
+    <div class="err-msg show" id="err-login" style="margin-bottom:12px;display:none;"></div>
+    <button class="btn-login" id="btn-login" onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- ── APP SHELL ─────────────────────────────────────────────────── -->
+<div id="app-shell">
+  <header>
+    <div class="brand-group">
+      <div class="brand-dot"></div>
+      <div class="brand-text">CASHYOU <span style="color:var(--muted);font-weight:300;font-size:13px;">// Admin Console</span></div>
+    </div>
+    <div class="header-right">
+      <div id="system-clock"></div>
+      <div class="admin-badge" id="admin-email-badge">admin</div>
+      <button class="btn-logout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <nav id="nav-bar">
+    <button class="active" data-view="dashboard">Dashboard</button>
+    <button data-view="customers">Customers</button>
+    <button data-view="loans">Loans</button>
+    <button data-view="payments">Payments</button>
+    <button data-view="tools">Tools</button>
+  </nav>
+
+  <main>
+
+    <!-- ── DASHBOARD ─────────────────────────────────────── -->
+    <div class="view active" id="view-dashboard">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="m-label">Total Customers</div>
+          <div class="m-value" id="m-customers">—</div>
+          <div class="m-sub">registered accounts</div>
+        </div>
+        <div class="metric-card c-cyan">
+          <div class="m-label">Active Loans</div>
+          <div class="m-value" id="m-active">—</div>
+          <div class="m-sub">currently running</div>
+        </div>
+        <div class="metric-card c-rose">
+          <div class="m-label">Overdue Loans</div>
+          <div class="m-value" id="m-overdue">—</div>
+          <div class="m-sub">past due date</div>
+        </div>
+        <div class="metric-card c-emerald">
+          <div class="m-label">Settled Loans</div>
+          <div class="m-value" id="m-paid">—</div>
+          <div class="m-sub">fully paid</div>
+        </div>
+        <div class="metric-card c-amber" style="border-color:rgba(245,158,11,.2);">
+          <div class="m-label">Total Outstanding</div>
+          <div class="m-value" id="m-outstanding">—</div>
+          <div class="m-sub">across all active loans</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">Recent Activity</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Type</th>
+                <th class="right">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="audit-log-body">
+              <tr><td colspan="4"><div class="skeleton" style="height:14px;margin:8px 0;border-radius:4px;"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CUSTOMERS ──────────────────────────────────────── -->
+    <div class="view" id="view-customers">
+      <div class="panel">
+        <div class="section-title">Add New Customer</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Full Name *</label>
+            <input type="text" id="cust-name" placeholder="Jane Doe">
+            <div class="f-err" id="err-cust-name">Name is required.</div>
+          </div>
+          <div class="form-field">
+            <label>Phone Number *</label>
+            <input type="tel" id="cust-phone" placeholder="07XXXXXXXX">
+            <div class="f-err" id="err-cust-phone">Valid phone required.</div>
+          </div>
+          <div class="form-field">
+            <label>National ID</label>
+            <input type="text" id="cust-nid" placeholder="National ID Number">
+          </div>
+          <div class="form-field">
+            <label>Email (optional)</label>
+            <input type="email" id="cust-email" placeholder="customer@email.com">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-add-customer" onclick="addCustomer()">+ Add Customer</button>
+        </div>
+      </div>
+
+      <div class="section-title">Customer Registry</div>
+      <div class="search-row">
+        <input type="text" id="search-customers" oninput="renderCustomers()" placeholder="Search by name, phone or ID…">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Name</th><th>Phone</th><th>National ID</th><th>Email</th><th>Date Added</th></tr>
+          </thead>
+          <tbody id="customers-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── LOANS ──────────────────────────────────────────── -->
+    <div class="view" id="view-loans">
+      <div class="panel">
+        <div class="section-title">Issue New Loan</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Customer *</label>
+            <select id="loan-customer">
+              <option value="">Select customer…</option>
+            </select>
+            <div class="f-err" id="err-loan-cust">Select a customer.</div>
+          </div>
+          <div class="form-field">
+            <label>Principal Amount ($) *</label>
+            <input type="number" id="loan-amount" step="0.01" min="0.01" placeholder="500.00">
+            <div class="f-err" id="err-loan-amount">Enter a valid amount.</div>
+          </div>
+          <div class="form-field">
+            <label>Interest Rate (%)</label>
+            <input type="number" id="loan-interest" step="0.01" value="0" min="0" placeholder="0">
+          </div>
+          <div class="form-field">
+            <label>Issue Date *</label>
+            <input type="date" id="loan-issue-date">
+          </div>
+          <div class="form-field">
+            <label>Loan Term</label>
+            <select id="loan-term" onchange="toggleCustomTerm()">
+              <option value="14">14 Days</option>
+              <option value="30" selected>30 Days</option>
+              <option value="60">60 Days</option>
+              <option value="90">90 Days</option>
+              <option value="custom">Custom…</option>
+            </select>
+          </div>
+          <div class="form-field" id="custom-term-field" style="display:none;">
+            <label>Custom Days</label>
+            <input type="number" id="loan-custom-days" value="45" min="1">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-issue-loan" onclick="issueLoan()">Authorise Loan</button>
+          <span id="loan-due-preview" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;"></span>
+        </div>
+      </div>
+
+      <div class="section-title">All Loans</div>
+      <div class="search-row">
+        <input type="text" id="search-loans" oninput="renderLoans()" placeholder="Search by customer or loan ID…">
+        <select id="filter-loan-status" onchange="renderLoans()">
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="overdue">Overdue</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Customer</th>
+              <th class="right">Principal</th>
+              <th class="right">Total Due</th>
+              <th class="right">Remaining</th>
+              <th>Progress</th>
+              <th>Due Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="loans-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── PAYMENTS ────────────────────────────────────────── -->
+    <div class="view" id="view-payments">
+      <div class="panel">
+        <div class="section-title">Record a Payment</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Loan *</label>
+            <select id="pay-loan-select">
+              <option value="">Select loan…</option>
+            </select>
+            <div class="f-err" id="err-pay-loan">Select a loan.</div>
+          </div>
+          <div class="form-field">
+            <label>Amount Paid ($) *</label>
+            <input type="number" id="pay-amount" step="0.01" min="0.01" placeholder="0.00">
+            <div class="f-err" id="err-pay-amount">Enter a valid amount.</div>
+          </div>
+          <div class="form-field">
+            <label>Payment Date *</label>
+            <input type="date" id="pay-date">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-record-payment" onclick="recordPayment()">Record Payment</button>
+          <span id="pay-balance-hint" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;"></span>
+        </div>
+      </div>
+
+      <div class="section-title">Payment History</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Loan #</th><th>Customer</th><th class="right">Amount</th><th>Date</th></tr>
+          </thead>
+          <tbody id="payments-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── TOOLS ──────────────────────────────────────────── -->
+    <div class="view" id="view-tools">
+      <div class="section-title">System Tools</div>
+      <div class="tools-grid">
+        <div class="tool-card">
+          <h4>Refresh Data</h4>
+          <p>Reload all data from Supabase and update loan statuses (overdue detection).</p>
+          <button class="btn btn-ghost" onclick="loadAllData()">↻ Refresh Now</button>
+        </div>
+        <div class="tool-card">
+          <h4>Export Customers (CSV)</h4>
+          <p>Download the full customer registry as a CSV file for offline records.</p>
+          <button class="btn btn-ghost" onclick="exportCSV('customers')">↓ Export Customers</button>
+        </div>
+        <div class="tool-card">
+          <h4>Export Loans (CSV)</h4>
+          <p>Download all loan records including status and outstanding balances.</p>
+          <button class="btn btn-ghost" onclick="exportCSV('loans')">↓ Export Loans</button>
+        </div>
+        <div class="tool-card">
+          <h4>Export Payments (CSV)</h4>
+          <p>Download the full payment history log as a CSV file.</p>
+          <button class="btn btn-ghost" onclick="exportCSV('payments')">↓ Export Payments</button>
+        </div>
+        <div class="tool-card" style="border-color:rgba(244,63,94,.2);">
+          <h4 style="color:var(--rose);">Mark Overdue Loans</h4>
+          <p>Manually scan all active loans and flag any past their due date as overdue.</p>
+          <button class="btn btn-danger" onclick="markOverdueLoans()">Run Overdue Check</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── CONFIRM MODAL ──────────────────────────────────────────────── -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box">
+    <h3 id="modal-title">Confirm Action</h3>
+    <p id="modal-body">Are you sure?</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger" id="modal-confirm-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Supabase ─────────────────────────────────────────────────────────────────
+const SUPABASE_URL  = 'https://pmxycnvvvwexwsgnkcqs.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBteHljbnZ2dndleHdzZ25rY3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTM4OTcsImV4cCI6MjA5NzEyOTg5N30.wq3z0GAojiealUI_y4ncbKu0OkHiwl-k7C1i_DBbzrw';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let allCustomers = [], allLoans = [], allPayments = [];
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+const fmt = n => '$' + parseFloat(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const today = () => new Date().toISOString().slice(0, 10);
+
+let toastTimer;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+function setBtn(id, loading, label) {
+  const b = document.getElementById(id);
+  if (!b) return;
+  b.disabled = loading;
+  b.innerHTML = loading ? `<span class="spinner"></span>${label}` : label;
+}
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function tickClock() {
+  document.getElementById('system-clock').textContent =
+    new Date().toLocaleString(undefined, { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+setInterval(tickClock, 15000);
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openModal(title, body, onConfirm) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').textContent = body;
+  document.getElementById('modal-confirm-btn').onclick = () => { closeModal(); onConfirm(); };
+  document.getElementById('confirm-modal').classList.add('open');
+}
+function closeModal() { document.getElementById('confirm-modal').classList.remove('open'); }
+
+// ── Login / Logout ────────────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-password').value;
+  let ok = true;
+
+  document.getElementById('err-email').classList.toggle('show', !email || !email.includes('@'));
+  document.getElementById('err-pass').classList.toggle('show', !pass);
+  document.getElementById('err-login').style.display = 'none';
+  if (!email || !email.includes('@') || !pass) return;
+
+  setBtn('btn-login', true, 'Signing in…');
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  setBtn('btn-login', false, 'Sign In');
+
+  if (error) {
+    const e = document.getElementById('err-login');
+    e.textContent = error.message;
+    e.style.display = 'block';
+    return;
+  }
+
+  document.getElementById('admin-email-badge').textContent = data.user.email;
+  bootApp();
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+// ── Boot App ──────────────────────────────────────────────────────────────────
+function bootApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'flex';
+  document.getElementById('app-shell').style.flexDirection = 'column';
+
+  // Nav listeners
+  document.querySelectorAll('#nav-bar button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#nav-bar button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('view-' + btn.dataset.view).classList.add('active');
+    });
+  });
+
+  // Loan term → due date preview
+  ['loan-issue-date', 'loan-term', 'loan-custom-days'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', updateDuePreview);
+    if (el) el.addEventListener('input', updateDuePreview);
+  });
+
+  // Pay loan → balance hint
+  document.getElementById('pay-loan-select').addEventListener('change', updateBalanceHint);
+
+  // Set default dates
+  document.getElementById('loan-issue-date').value = today();
+  document.getElementById('pay-date').value = today();
+
+  tickClock();
+  loadAllData();
+}
+
+// ── Load All Data ─────────────────────────────────────────────────────────────
+async function loadAllData() {
+  toast('Loading data…');
+
+  const [custRes, loanRes, payRes] = await Promise.all([
+    sb.from('customers').select('*').order('id', { ascending: false }),
+    sb.from('loans').select('*, customers(name)').order('id', { ascending: false }),
+    sb.from('payments').select('*, loans(customer_id, customers(name))').order('id', { ascending: false })
+  ]);
+
+  if (custRes.error || loanRes.error || payRes.error) {
+    toast('Failed to load data from Supabase.', 'error');
+    return;
+  }
+
+  allCustomers = custRes.data || [];
+  allLoans     = loanRes.data || [];
+  allPayments  = payRes.data || [];
+
+  // Auto-detect overdue
+  const nowStr = today();
+  allLoans = allLoans.map(l => {
+    if (l.status === 'active' && l.due_date && l.due_date < nowStr) {
+      return { ...l, status: 'overdue' };
+    }
+    return l;
+  });
+
+  renderDashboard();
+  renderCustomers();
+  renderLoans();
+  renderPayments();
+  populateDropdowns();
+  toast('Data loaded.', 'success');
+}
+
+// ── Loan Calc Helper ──────────────────────────────────────────────────────────
+function loanCalc(loan) {
+  const principal   = parseFloat(loan.amount || 0);
+  const rate        = parseFloat(loan.interest_rate || 0);
+  const totalDue    = principal * (1 + rate / 100);
+  const totalPaid   = allPayments
+    .filter(p => p.loan_id === loan.id)
+    .reduce((s, p) => s + parseFloat(p.amount_paid || 0), 0);
+  const remaining   = Math.max(0, totalDue - totalPaid);
+  return { principal, totalDue, totalPaid, remaining };
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function renderDashboard() {
+  document.getElementById('m-customers').textContent = allCustomers.length;
+  document.getElementById('m-active').textContent    = allLoans.filter(l => l.status === 'active').length;
+  document.getElementById('m-overdue').textContent   = allLoans.filter(l => l.status === 'overdue').length;
+  document.getElementById('m-paid').textContent      = allLoans.filter(l => l.status === 'paid').length;
+
+  const outstanding = allLoans
+    .filter(l => l.status !== 'paid')
+    .reduce((s, l) => s + loanCalc(l).remaining, 0);
+  document.getElementById('m-outstanding').textContent = fmt(outstanding);
+
+  // Audit log: merge recent loans + payments
+  const loanLog = allLoans.slice(0, 8).map(l => ({
+    date: l.issue_date,
+    customer: l.customers?.name || '—',
+    type: 'Loan Disbursed',
+    amount: l.amount,
+    typeClass: 'log-disbursement'
+  }));
+  const payLog = allPayments.slice(0, 8).map(p => ({
+    date: p.date,
+    customer: p.loans?.customers?.name || '—',
+    type: 'Payment Received',
+    amount: p.amount_paid,
+    typeClass: 'log-payment'
+  }));
+
+  const merged = [...loanLog, ...payLog]
+    .sort((a, b) => b.date?.localeCompare(a.date))
+    .slice(0, 10);
+
+  const tbody = document.getElementById('audit-log-body');
+  if (!merged.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="table-empty">No activity yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = merged.map(r => `
+    <tr>
+      <td class="mono text-muted">${r.date || '—'}</td>
+      <td style="font-weight:600;">${r.customer}</td>
+      <td class="mono ${r.typeClass}">${r.type}</td>
+      <td class="mono right" style="font-weight:600;">${fmt(r.amount)}</td>
+    </tr>`).join('');
+}
+
+// ── Customers ─────────────────────────────────────────────────────────────────
+function renderCustomers() {
+  const q = (document.getElementById('search-customers')?.value || '').toLowerCase();
+  const list = q
+    ? allCustomers.filter(c =>
+        c.name?.toLowerCase().includes(q) ||
+        c.phone?.includes(q) ||
+        String(c.id).includes(q))
+    : allCustomers;
+
+  const tbody = document.getElementById('customers-body');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty">${q ? 'No matches found.' : 'No customers yet.'}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(c => `
+    <tr>
+      <td class="mono" style="color:var(--cyan);">#${c.id}</td>
+      <td style="font-weight:600;">${c.name}</td>
+      <td class="mono">${c.phone || '—'}</td>
+      <td class="mono text-muted">${c.national_id || '—'}</td>
+      <td class="text-muted">${c.email || '—'}</td>
+      <td class="mono text-muted">${c.date_added || '—'}</td>
+    </tr>`).join('');
+}
+
+async function addCustomer() {
+  const name  = document.getElementById('cust-name').value.trim();
+  const phone = document.getElementById('cust-phone').value.trim();
+  const nid   = document.getElementById('cust-nid').value.trim();
+  const email = document.getElementById('cust-email').value.trim();
+
+  let ok = true;
+  document.getElementById('err-cust-name').classList.toggle('show', !name);
+  document.getElementById('err-cust-phone').classList.toggle('show', !phone || phone.length < 10);
+  if (!name) ok = false;
+  if (!phone || phone.length < 10) ok = false;
+  if (!ok) return;
+
+  setBtn('btn-add-customer', true, 'Adding…');
+  const { data, error } = await sb.from('customers').insert({
+    name, phone,
+    national_id: nid || null,
+    email: email || null,
+    date_added: today()
+  }).select().single();
+  setBtn('btn-add-customer', false, '+ Add Customer');
+
+  if (error) { toast(error.message, 'error'); return; }
+
+  allCustomers.unshift(data);
+  renderCustomers();
+  populateDropdowns();
+  renderDashboard();
+  ['cust-name','cust-phone','cust-nid','cust-email'].forEach(id => document.getElementById(id).value = '');
+  toast('Customer added.', 'success');
+}
+
+// ── Loans ─────────────────────────────────────────────────────────────────────
+function toggleCustomTerm() {
+  document.getElementById('custom-term-field').style.display =
+    document.getElementById('loan-term').value === 'custom' ? 'block' : 'none';
+  updateDuePreview();
+}
+
+function updateDuePreview() {
+  const issueDate = document.getElementById('loan-issue-date').value;
+  if (!issueDate) { document.getElementById('loan-due-preview').textContent = ''; return; }
+  let days = parseInt(document.getElementById('loan-term').value);
+  if (isNaN(days)) days = parseInt(document.getElementById('loan-custom-days').value) || 30;
+  const due = new Date(issueDate);
+  due.setDate(due.getDate() + days);
+  document.getElementById('loan-due-preview').textContent = `Due: ${due.toISOString().slice(0,10)}`;
+}
+
+function renderLoans() {
+  const q      = (document.getElementById('search-loans')?.value || '').toLowerCase();
+  const status = document.getElementById('filter-loan-status')?.value || '';
+
+  let list = allLoans;
+  if (q) list = list.filter(l => l.customers?.name?.toLowerCase().includes(q) || String(l.id).includes(q));
+  if (status) list = list.filter(l => l.status === status);
+
+  const tbody = document.getElementById('loans-body');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No loans found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(l => {
+    const c = loanCalc(l);
+    const pct = c.totalDue > 0 ? Math.min(100, (c.totalPaid / c.totalDue) * 100).toFixed(0) : 0;
+    const overdue = l.status === 'overdue';
+    return `
+      <tr>
+        <td class="mono" style="color:var(--cyan);">#${l.id}</td>
+        <td style="font-weight:600;">${l.customers?.name || '—'}</td>
+        <td class="mono right">${fmt(c.principal)}</td>
+        <td class="mono right">${fmt(c.totalDue)}</td>
+        <td class="mono right" style="color:${overdue ? 'var(--rose)' : 'var(--amber)'};font-weight:600;">${fmt(c.remaining)}</td>
+        <td style="min-width:100px;">
+          <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px;font-family:'JetBrains Mono',monospace;">${pct}%</div>
+        </td>
+        <td class="mono text-muted">${l.due_date || '—'}</td>
+        <td><span class="badge badge-${l.status}">${l.status}</span></td>
+      </tr>`;
+  }).join('');
+}
+
+async function issueLoan() {
+  const custId   = document.getElementById('loan-customer').value;
+  const amount   = parseFloat(document.getElementById('loan-amount').value);
+  const interest = parseFloat(document.getElementById('loan-interest').value) || 0;
+  const issueDate = document.getElementById('loan-issue-date').value || today();
+
+  let ok = true;
+  document.getElementById('err-loan-cust').classList.toggle('show', !custId);
+  document.getElementById('err-loan-amount').classList.toggle('show', !amount || amount <= 0);
+  if (!custId || !amount || amount <= 0) return;
+
+  let days = parseInt(document.getElementById('loan-term').value);
+  if (isNaN(days)) days = parseInt(document.getElementById('loan-custom-days').value) || 30;
+  const dueDate = new Date(issueDate);
+  dueDate.setDate(dueDate.getDate() + days);
+  const dueDateStr = dueDate.toISOString().slice(0, 10);
+
+  setBtn('btn-issue-loan', true, 'Issuing…');
+  const { data, error } = await sb.from('loans').insert({
+    customer_id: parseInt(custId),
+    amount, interest_rate: interest,
+    issue_date: issueDate,
+    due_date: dueDateStr,
+    status: 'active'
+  }).select('*, customers(name)').single();
+  setBtn('btn-issue-loan', false, 'Authorise Loan');
+
+  if (error) { toast(error.message, 'error'); return; }
+
+  allLoans.unshift(data);
+  renderLoans();
+  renderDashboard();
+  populateDropdowns();
+  document.getElementById('loan-amount').value = '';
+  document.getElementById('loan-interest').value = '0';
+  document.getElementById('loan-due-preview').textContent = '';
+  toast('Loan issued successfully.', 'success');
+}
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+function updateBalanceHint() {
+  const loanId = document.getElementById('pay-loan-select').value;
+  if (!loanId) { document.getElementById('pay-balance-hint').textContent = ''; return; }
+  const loan = allLoans.find(l => String(l.id) === String(loanId));
+  if (!loan) return;
+  const c = loanCalc(loan);
+  document.getElementById('pay-balance-hint').textContent =
+    `Balance remaining: ${fmt(c.remaining)}`;
+}
+
+function renderPayments() {
+  const tbody = document.getElementById('payments-body');
+  if (!allPayments.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No payments recorded yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allPayments.map(p => `
+    <tr>
+      <td class="mono text-muted">#${p.id}</td>
+      <td class="mono" style="color:var(--cyan);">#${p.loan_id}</td>
+      <td style="font-weight:600;">${p.loans?.customers?.name || '—'}</td>
+      <td class="mono right" style="color:var(--emerald);font-weight:600;">${fmt(p.amount_paid)}</td>
+      <td class="mono text-muted">${p.date || '—'}</td>
+    </tr>`).join('');
+}
+
+async function recordPayment() {
+  const loanId = document.getElementById('pay-loan-select').value;
+  const amount = parseFloat(document.getElementById('pay-amount').value);
+  const date   = document.getElementById('pay-date').value || today();
+
+  document.getElementById('err-pay-loan').classList.toggle('show', !loanId);
+  document.getElementById('err-pay-amount').classList.toggle('show', !amount || amount <= 0);
+  if (!loanId || !amount || amount <= 0) return;
+
+  const loan = allLoans.find(l => String(l.id) === String(loanId));
+  if (loan) {
+    const { remaining } = loanCalc(loan);
+    if (amount > remaining + 0.01) {
+      toast(`Amount exceeds balance. Max: ${fmt(remaining)}`, 'error');
+      return;
+    }
+  }
+
+  setBtn('btn-record-payment', true, 'Recording…');
+  const { data, error } = await sb.from('payments').insert({
+    loan_id: parseInt(loanId), amount_paid: amount, date
+  }).select('*, loans(customer_id, customers(name))').single();
+  setBtn('btn-record-payment', false, 'Record Payment');
+
+  if (error) { toast(error.message, 'error'); return; }
+
+  allPayments.unshift(data);
+
+  // Check if fully paid
+  if (loan) {
+    const c = loanCalc(loan);
+    const newRemaining = Math.max(0, c.remaining - amount);
+    if (newRemaining < 0.02) {
+      await sb.from('loans').update({ status: 'paid' }).eq('id', parseInt(loanId));
+      const idx = allLoans.findIndex(l => l.id === parseInt(loanId));
+      if (idx > -1) allLoans[idx].status = 'paid';
+    }
+  }
+
+  renderPayments();
+  renderLoans();
+  renderDashboard();
+  updateBalanceHint();
+  document.getElementById('pay-amount').value = '';
+  toast('Payment recorded.', 'success');
+}
+
+// ── Dropdowns ─────────────────────────────────────────────────────────────────
+function populateDropdowns() {
+  // Customer select (loan form)
+  const custSel = document.getElementById('loan-customer');
+  custSel.innerHTML = '<option value="">Select customer…</option>' +
+    allCustomers.map(c => `<option value="${c.id}">${c.name} (#${c.id})</option>`).join('');
+
+  // Loan select (payment form) — only non-paid loans
+  const loanSel = document.getElementById('pay-loan-select');
+  const openLoans = allLoans.filter(l => l.status !== 'paid');
+  loanSel.innerHTML = '<option value="">Select loan…</option>' +
+    openLoans.map(l => {
+      const c = loanCalc(l);
+      return `<option value="${l.id}">#${l.id} — ${l.customers?.name || '?'} (${fmt(c.remaining)} left)</option>`;
+    }).join('');
+
+  updateBalanceHint();
+}
+
+// ── Mark Overdue ──────────────────────────────────────────────────────────────
+async function markOverdueLoans() {
+  const nowStr = today();
+  const toMark = allLoans.filter(l => l.status === 'active' && l.due_date && l.due_date < nowStr);
+  if (!toMark.length) { toast('No loans to mark overdue.'); return; }
+
+  openModal(
+    'Mark Overdue Loans',
+    `${toMark.length} loan(s) will be marked as overdue. Continue?`,
+    async () => {
+      const ids = toMark.map(l => l.id);
+      const { error } = await sb.from('loans').update({ status: 'overdue' }).in('id', ids);
+      if (error) { toast(error.message, 'error'); return; }
+      allLoans = allLoans.map(l => ids.includes(l.id) ? { ...l, status: 'overdue' } : l);
+      renderLoans(); renderDashboard(); populateDropdowns();
+      toast(`${toMark.length} loan(s) marked as overdue.`, 'success');
+    }
+  );
+}
+
+// ── CSV Export ────────────────────────────────────────────────────────────────
+function exportCSV(type) {
+  let rows = [], filename = '';
+
+  if (type === 'customers') {
+    rows = [['ID','Name','Phone','National ID','Email','Date Added'],
+      ...allCustomers.map(c => [c.id, c.name, c.phone, c.national_id || '', c.email || '', c.date_added || ''])];
+    filename = 'cashyou_customers.csv';
+  } else if (type === 'loans') {
+    rows = [['ID','Customer','Principal','Interest %','Total Due','Remaining','Issue Date','Due Date','Status'],
+      ...allLoans.map(l => {
+        const c = loanCalc(l);
+        return [l.id, l.customers?.name, l.amount, l.interest_rate, c.totalDue.toFixed(2), c.remaining.toFixed(2), l.issue_date, l.due_date, l.status];
+      })];
+    filename = 'cashyou_loans.csv';
+  } else if (type === 'payments') {
+    rows = [['ID','Loan ID','Customer','Amount Paid','Date'],
+      ...allPayments.map(p => [p.id, p.loan_id, p.loans?.customers?.name || '', p.amount_paid, p.date])];
+    filename = 'cashyou_payments.csv';
+  }
+
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  toast(`${filename} downloaded.`, 'success');
+}
+
+// ── Session Check ─────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    document.getElementById('admin-email-badge').textContent = session.user.email;
+    bootApp();
+  }
+});
+</script>
+</body>
+</html>
