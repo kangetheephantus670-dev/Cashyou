@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CASHYOU — Offline</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #090d16; color: #F3F4F6;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      text-align: center; padding: 24px;
+    }
+    .icon { font-size: 64px; margin-bottom: 24px; }
+    h1 { font-size: 28px; font-weight: 800; margin-bottom: 12px; color: #FFC000; }
+    p { font-size: 15px; color: #9CA3AF; line-height: 1.6; max-width: 280px; margin: 0 auto 28px; }
+    button {
+      background: #FFC000; color: #000; border: none; border-radius: 14px;
+      padding: 14px 28px; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="icon">📡</div>
+    <h1>You're Offline</h1>
+    <p>CASHYOU needs an internet connection to sync your loans and payments. Please check your connection and try again.</p>
+    <button onclick="window.location.reload()">Try Again</button>
+  </div>
+</body>
+</html>

@@ -3,6 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- PWA -->
+  <link rel="manifest" href="/Cashyou/manifest-admin.json">
+  <meta name="theme-color" content="#22d3ee">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CY Admin">
+  <link rel="apple-touch-icon" href="/Cashyou/icons/icon-admin-192.png">
+  <meta name="msapplication-TileImage" content="/Cashyou/icons/icon-admin-144.png">
+  <meta name="msapplication-TileColor" content="#030712">
   <title>CASHYOU — Admin Console</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1064,6 +1075,46 @@ window.addEventListener('DOMContentLoaded', async () => {
     bootApp();
   }
 });
+</script>
+
+  <div id="install-banner-admin" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:#0f172a; border-top:1px solid rgba(34,211,238,0.2); padding:14px 20px; align-items:center; gap:12px;">
+    <img src="/Cashyou/icons/icon-admin-72.png" style="width:42px;height:42px;border-radius:10px;" alt="Admin">
+    <div style="flex:1;">
+      <div style="font-weight:700;font-size:14px;color:#f8fafc;">Install Admin Console</div>
+      <div style="font-size:12px;color:#64748b;">Add to home screen for quick access</div>
+    </div>
+    <button onclick="installApp()" style="background:#22d3ee;color:#030712;border:none;border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer;">Install</button>
+    <button onclick="document.getElementById('install-banner-admin').style.display='none'" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;padding:4px;">×</button>
+  </div>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/Cashyou/sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW error:', err));
+  });
+}
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  setTimeout(() => {
+    const b = document.getElementById('install-banner-admin');
+    if (b) b.style.display = 'flex';
+  }, 3000);
+});
+window.addEventListener('appinstalled', () => {
+  const b = document.getElementById('install-banner-admin');
+  if (b) b.style.display = 'none';
+  deferredPrompt = null;
+});
+function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+  }
+}
 </script>
 </body>
 </html>
